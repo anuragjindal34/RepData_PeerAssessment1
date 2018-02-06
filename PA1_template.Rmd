@@ -1,0 +1,118 @@
+---
+title: "Coursera Reproducible Research Course Project 1"
+author: "Anurag Jindal"
+date: "February 6, 2018"
+output: html_document
+---
+#Introduction
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the "quantified self" movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+
+
+##Loading and Preprocessing the data
+
+```{r}
+temp <- tempfile()
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileUrl, temp)
+unzip(temp,"activity.csv")
+unlink(temp)
+
+
+activity <- read.csv("activity.csv")
+head(activity)
+
+activity$date <- as.Date(activity$date, format = "%Y-%m-%d")
+summary(activity)
+```
+
+
+##Histogram of the total number of steps taken each day
+
+```{r}
+library(dplyr)
+activity_total_steps <- group_by(activity, date)
+activity_total_steps <- summarise(activity_total_steps, Steps = sum(steps, na.rm=TRUE))
+hist(activity_total_steps$Steps, xlab = "Total Number of Steps taken", ylab = "Frequency", main = "Histogram of total number of steps taken", col = "blue", breaks = seq(0,25000, by = 2500), ylim = c(0,25))
+```
+
+##Mean and median number of steps taken each day
+
+Mean number of steps taken each day
+```{r}
+meansteps <- mean(activity_total_steps$Steps, na.rm = TRUE)
+meansteps
+```
+
+Median number of steps taken each day
+```{r}
+mediansteps <- median(activity_total_steps$Steps, na.rm = TRUE)
+mediansteps
+```
+
+##Time series plot of the average number of steps taken
+```{r}
+activity_average_steps <- group_by(activity, interval)
+activity_average_steps <- summarise(activity_average_steps, Steps = mean(steps, na.rm = TRUE))
+plot(activity_average_steps$interval, activity_average_steps$Steps, type = "l", xlab = "Time Intervals", ylab = "Average number of Steps over all days", main = "TIme Series plot of average number of steps taken", col = "blue")
+```
+
+##The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r}
+activity_average_steps[which.max(activity_average_steps$Steps),]$interval
+```
+
+##Code to describe and show a strategy for imputing missing data
+We match intervals in activity dataset and same for corrosponding intervals in dataset of average number of steps and obtain mean steps for that intervals.
+We will fill these steps only for missing values in activity dataset.
+
+```{r}
+imputedSteps <- activity_average_steps$Steps[match(activity$interval, activity_average_steps$interval)]
+activity_imputed <- transform(activity, steps = ifelse(is.na(activity$steps),yes = imputedSteps, no = activity$steps))
+head(activity_imputed)
+```
+
+##Histogram of the total number of steps taken each day after missing values are imputed
+```{r}
+activity_imputed_total <- group_by(activity_imputed, date)
+activity_imputed_total <- summarise(activity_imputed_total, Steps = sum(steps))
+hist(activity_imputed_total$Steps, xlab = "Total number of steps after missing values being imputed", ylab = "Frequency", main = "Histogram of Total steps afte missing data imputed", ylim = c(0,30), breaks  = seq(0,25000, by = 2500), col = "blue")
+```
+
+
+
+
+
+
+
+mean and median of total number of steps taken after imputing missing values
+```{r}
+meanstepsImputed <- mean(activity_imputed_total$Steps)
+meanstepsImputed
+medianstepsImoputed <- median(activity_imputed_total$Steps)
+medianstepsImoputed
+```
+
+
+##Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+
+```{r}
+library(lubridate)
+activity_imputed$datetype <- weekdays(activity_imputed$date)
+head(activity_imputed)
+weekday1 <- c("Monday", "Tuesday", "Wednesday", "Thrusday", "Friday")
+weekendday <- c("Saturday", "Sunday")
+activity_imputed <- transform(activity_imputed, datetype = ifelse(activity_imputed$datetype %in% weekday1, "Weekday", "Weekend"))
+head(activity_imputed)
+activity_imputed_average <- group_by(activity_imputed, interval, datetype)
+activity_imputed_average <- summarise(activity_imputed_average, Steps = mean(steps))
+library(ggplot2)
+g <- qplot(interval, Steps, data = activity_imputed_average , geom = "line")
+g+  geom_line(aes(color = datetype)) + facet_grid(datetype~.) + labs(x = "Interval", ylab = "Average Steps", title = "                                            Plot of Average Steps")  
+
+```
+
